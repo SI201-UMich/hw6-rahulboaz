@@ -2,13 +2,13 @@
 # Your name: Rahul Boaz
 # Your student id: 19833614
 # Your email: rboaz@umich.edu
-# Who or what you worked with on this homework (including generative AI like ChatGPT):
+# Who or what you worked with on this homework (including generative AI like ChatGPT): ChatGPT
 # If you worked with generative AI also add a statement for how you used it.
 # e.g.:
 # Asked ChatGPT for help debugging and understanding the JSON structure
-#
+# I used chatgpt for help with JSON structure and API access within the functions, I also used it to help me understand how to handle edge cases and error handling in the functions.
 # Did your use of GenAI on this assignment align with your goals and guidelines in your Gen AI contract? If not, why?
-#
+# Yes.
 # --- ARGUMENTS & EXPECTED RETURN VALUES PROVIDED --- #
 # --- SEE INSTRUCTIONS FOR FULL DETAILS ON METHOD IMPLEMENTATION --- #
 
@@ -175,7 +175,17 @@ def get_groups_above_cutoff(cutoff, cache_file):
     RETURNS:
         A dictionary {group_uuid: count} for groups with count >= cutoff only.
     """
-    pass
+    cache = load_json(cache_file)
+    group_counts = {}
+
+    for entry in cache.values():
+        try:
+            group_id = entry["data"]["relationships"]["group"]["data"]["id"]
+            group_counts[group_id] = group_counts.get(group_id, 0) + 1
+        except (KeyError, TypeError):
+            continue
+
+    return {group_id: count for group_id, count in group_counts.items() if count >= cutoff}
 
 
 # Extra Credit
@@ -199,6 +209,43 @@ def recommend_breeds_in_same_group(breed_name, cache_file):
             "No group information available for '{breed_name}'."  (no group id)
             "No recommendations found based on '{breed_name}'."  (no other breeds in that group)
     """
+    cache = load_json(cache_file)
+
+    if not cache:
+        return "No breed data found in cache."
+
+    target_breed = None
+    target_group_id = None
+
+    for entry in cache.values():
+        try:
+            name = entry["data"]["attributes"]["name"]
+            if name.lower() == breed_name.lower():
+                target_breed = name
+                target_group_id = entry["data"]["relationships"]["group"]["data"]["id"]
+                break
+        except (KeyError, TypeError):
+            continue
+
+    if target_breed is None:
+        return f"'{breed_name}' is not in the cache."
+    if target_group_id is None:
+        return f"No group information available for '{breed_name}'."
+
+    recommendations = []
+    for entry in cache.values():
+        try:
+            name = entry["data"]["attributes"]["name"]
+            group_id = entry["data"]["relationships"]["group"]["data"]["id"]
+            if group_id == target_group_id and name != target_breed:
+                recommendations.append(name)
+        except (KeyError, TypeError):
+            continue
+
+    if not recommendations:
+        return f"No recommendations found based on '{breed_name}'."
+
+    return sorted(recommendations)
 
 
 class TestHomeworkDogAPI(unittest.TestCase):
@@ -423,7 +470,7 @@ class TestHomeworkDogAPI(unittest.TestCase):
     # -------------------------
     # extra credit - uncomment tests below to evaluate extra credit function
     # -------------------------
-    """
+    
     def test_recommend_breeds_in_same_group_empty_cache(self):
         create_cache({}, self.test_cache_file)
         self.assertEqual(
@@ -528,7 +575,7 @@ class TestHomeworkDogAPI(unittest.TestCase):
             recommend_breeds_in_same_group("breed a", self.test_cache_file),
             ["Breed B", "Breed Z"],
         )
-    """
+    
 
 
 if __name__ == "__main__":
